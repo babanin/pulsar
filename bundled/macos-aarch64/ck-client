@@ -1,0 +1,4 @@
+#!/bin/sh
+echo "ck-client stub for $0"
+echo "This is a placeholder binary. Replace with the real ck-client binary."
+exit 0
