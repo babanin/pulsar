@@ -7,8 +7,21 @@
 - Run tests: `cargo test`
 - Run all tests (unit + integration): `cargo test --all`
 - Check compilation: `cargo check`
-- Lint: `cargo clippy -- -D warnings`
-- Format: `cargo fmt -- --check`
+
+## Lint and Format
+
+- **Clippy** (all warnings as errors): `cargo clippy -- -D warnings`
+- **Format check**: `cargo fmt -- --check`
+- **Apply format**: `cargo fmt`
+
+Always run both clippy and fmt check before committing. CI enforces both.
+
+## CI Checks
+
+On every push to main/master and on pull requests:
+1. `cargo fmt -- --check` must pass
+2. `cargo clippy -- -D warnings` must pass
+3. `cargo test --all` must pass
 
 ## Project Structure
 
