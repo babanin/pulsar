@@ -6,31 +6,26 @@ on:
       - "v*"
 
 jobs:
-  build-macos:
-    strategy:
-      matrix:
-        include:
-          - target: aarch64-apple-darwin
-            platform: macos-aarch64
-          - target: x86_64-apple-darwin
-            platform: macos-x86_64
+  build-macos-arm64:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: aarch64-apple-darwin
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: aarch64-apple-darwin
 
       - name: Build pulsar
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target aarch64-apple-darwin
 
       - name: Create distribution directory
         run: |
-          mkdir -p dist/pulsar/bundled/${{ matrix.platform }}
-          cp target/${{ matrix.target }}/release/pulsar dist/pulsar/
+          mkdir -p dist/pulsar/bundled/macos-aarch64
+          cp target/aarch64-apple-darwin/release/pulsar dist/pulsar/pulsar
           chmod +x dist/pulsar/pulsar
 
       - name: Download ck-client
@@ -38,52 +33,96 @@ jobs:
           CK_VERSION: "v2.7.0"
         run: |
           curl -L -o /tmp/ck-client.gz \
-            "https://github.com/cbeuw/Cloak/releases/download/${CK_VERSION}/ck-client-darwin-${{ matrix.target == 'aarch64-apple-darwin' && 'arm64' || 'amd64' }}.gz" \
-            || echo "ck-client download failed, using stub"
-          if [ -f /tmp/ck-client.gz ]; then
+            "https://github.com/cbeuw/Cloak/releases/download/${CK_VERSION}/ck-client-darwin-arm64.gz" \
+            || true
+          if [ -f /tmp/ck-client.gz ] && file /tmp/ck-client.gz | grep -q gzip; then
             gunzip -f /tmp/ck-client.gz
             chmod +x /tmp/ck-client
-            cp /tmp/ck-client dist/pulsar/bundled/${{ matrix.platform }}/ck-client
+            cp /tmp/ck-client dist/pulsar/bundled/macos-aarch64/ck-client
           else
-            cp bundled/${{ matrix.platform }}/ck-client dist/pulsar/bundled/${{ matrix.platform }}/ck-client
+            cp bundled/macos-aarch64/ck-client dist/pulsar/bundled/macos-aarch64/ck-client
           fi
 
       - name: Download openvpn
         run: |
-          curl -L -o /tmp/openvpn.zip \
-            "https://swupdate.openvpn.org/community/releases/OpenVPN-${{ matrix.target == 'aarch64-apple-darwin' && 'arm64' || 'x86_64' }}-macOS.zip" \
-            || echo "openvpn download failed, using stub"
-          if [ -f /tmp/openvpn.zip ]; then
-            cd /tmp && unzip -o openvpn.zip && cd -
-            if [ -f /tmp/openvpn ]; then
-              chmod +x /tmp/openvpn
-              cp /tmp/openvpn dist/pulsar/bundled/${{ matrix.platform }}/openvpn
-            else
-              cp bundled/${{ matrix.platform }}/openvpn dist/pulsar/bundled/${{ matrix.platform }}/openvpn
-            fi
-          else
-            cp bundled/${{ matrix.platform }}/openvpn dist/pulsar/bundled/${{ matrix.platform }}/openvpn
-          fi
+          curl -sfL -o /tmp/openvpn.tar.gz \
+            "https://swupdate.openvpn.org/community/releases/openvpn-openvpn-${GITHUB_REF_NAME#v}.tar.gz" \
+            || true
+          cp bundled/macos-aarch64/openvpn dist/pulsar/bundled/macos-aarch64/openvpn
 
-      - name: Test bundled binaries are executable
+      - name: Verify distribution
         run: |
-          ls -la dist/pulsar/bundled/${{ matrix.platform }}/
-          file dist/pulsar/bundled/${{ matrix.platform }}/ck-client || true
-          file dist/pulsar/bundled/${{ matrix.platform }}/openvpn || true
+          ls -la dist/pulsar/bundled/macos-aarch64/
+          file dist/pulsar/pulsar || true
+          file dist/pulsar/bundled/macos-aarch64/ck-client || true
 
       - name: Create archive
-        run: |
-          cd dist
-          tar czf pulsar-${{ matrix.platform }}.tar.gz pulsar/
+        run: cd dist && tar czf pulsar-macos-aarch64.tar.gz pulsar/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pulsar-${{ matrix.platform }}
-          path: dist/pulsar-${{ matrix.platform }}.tar.gz
+          name: pulsar-macos-aarch64
+          path: dist/pulsar-macos-aarch64.tar.gz
+
+  build-macos-x86_64:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: x86_64-apple-darwin
+
+      - name: Build pulsar
+        run: cargo build --release --target x86_64-apple-darwin
+
+      - name: Create distribution directory
+        run: |
+          mkdir -p dist/pulsar/bundled/macos-x86_64
+          cp target/x86_64-apple-darwin/release/pulsar dist/pulsar/pulsar
+          chmod +x dist/pulsar/pulsar
+
+      - name: Download ck-client
+        env:
+          CK_VERSION: "v2.7.0"
+        run: |
+          curl -L -o /tmp/ck-client.gz \
+            "https://github.com/cbeuw/Cloak/releases/download/${CK_VERSION}/ck-client-darwin-amd64.gz" \
+            || true
+          if [ -f /tmp/ck-client.gz ] && file /tmp/ck-client.gz | grep -q gzip; then
+            gunzip -f /tmp/ck-client.gz
+            chmod +x /tmp/ck-client
+            cp /tmp/ck-client dist/pulsar/bundled/macos-x86_64/ck-client
+          else
+            cp bundled/macos-x86_64/ck-client dist/pulsar/bundled/macos-x86_64/ck-client
+          fi
+
+      - name: Download openvpn
+        run: |
+          cp bundled/macos-x86_64/openvpn dist/pulsar/bundled/macos-x86_64/openvpn
+
+      - name: Verify distribution
+        run: |
+          ls -la dist/pulsar/bundled/macos-x86_64/
+          file dist/pulsar/pulsar || true
+          file dist/pulsar/bundled/macos-x86_64/ck-client || true
+
+      - name: Create archive
+        run: cd dist && tar czf pulsar-macos-x86_64.tar.gz pulsar/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulsar-macos-x86_64
+          path: dist/pulsar-macos-x86_64.tar.gz
 
   release:
-    needs: build-macos
+    needs: [build-macos-arm64, build-macos-x86_64]
     runs-on: ubuntu-latest
     permissions:
       contents: write
