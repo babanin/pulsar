@@ -3,7 +3,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 #[allow(dead_code)]
 pub enum PulsarError {
-#[error("Profile not found: {0}")]
+    #[error("Profile not found: {0}")]
     ProfileNotFound(String),
 
     #[error("Profile already exists: {0}")]
@@ -53,7 +53,11 @@ pub enum PulsarError {
     AlreadyConnected,
 
     #[error("Cloak did not become ready at {host}:{port} within {timeout}s")]
-    CloakReadyTimeout { host: String, port: u16, timeout: u64 },
+    CloakReadyTimeout {
+        host: String,
+        port: u16,
+        timeout: u64,
+    },
 
     #[error("Configuration directory not writable: {0}")]
     ConfigDirNotWritable(String),

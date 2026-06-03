@@ -12,10 +12,7 @@ fn fixtures_dir() -> String {
 #[test]
 fn test_import_amnezia_backup() {
     let backup_path = format!("{}/amnezia-openvpn-cloak.backup", fixtures_dir());
-    let data = import::import(ImportSource::AmneziaBackup {
-        path: backup_path,
-    })
-    .unwrap();
+    let data = import::import(ImportSource::AmneziaBackup { path: backup_path }).unwrap();
 
     assert_eq!(data.profile.protocol_type, ProtocolType::OpenvpnCloak);
     assert_eq!(data.cloak_config.proxy_method, "openvpn");
@@ -48,10 +45,7 @@ fn test_full_import_and_store() {
     let store = ProfileStore::with_base_dir(tmp.path().to_path_buf()).unwrap();
 
     let backup_path = format!("{}/amnezia-openvpn-cloak.backup", fixtures_dir());
-    let mut data = import::import(ImportSource::AmneziaBackup {
-        path: backup_path,
-    })
-    .unwrap();
+    let mut data = import::import(ImportSource::AmneziaBackup { path: backup_path }).unwrap();
 
     data.profile.name = "test-amnezia".to_string();
 

@@ -12,9 +12,7 @@ impl ProfileStore {
     pub fn new() -> Result<Self> {
         let base_dir = dirs::config_dir()
             .ok_or_else(|| {
-                PulsarError::ConfigDirNotWritable(
-                    "Cannot determine config directory".to_string(),
-                )
+                PulsarError::ConfigDirNotWritable("Cannot determine config directory".to_string())
             })?
             .join("pulsar")
             .join("profiles");
@@ -24,10 +22,7 @@ impl ProfileStore {
 
     pub fn with_base_dir(base_dir: PathBuf) -> Result<Self> {
         fs::create_dir_all(&base_dir).map_err(|e| {
-            PulsarError::ConfigDirNotWritable(format!(
-                "Cannot create {}: {e}",
-                base_dir.display()
-            ))
+            PulsarError::ConfigDirNotWritable(format!("Cannot create {}: {e}", base_dir.display()))
         })?;
         Ok(Self { base_dir })
     }
@@ -95,9 +90,7 @@ impl ProfileStore {
     pub fn save(&self, data: &ProfileData) -> Result<()> {
         let dir = self.profile_dir(&data.profile.name);
         if self.exists(&data.profile.name) {
-            return Err(PulsarError::ProfileAlreadyExists(
-                data.profile.name.clone(),
-            ));
+            return Err(PulsarError::ProfileAlreadyExists(data.profile.name.clone()));
         }
 
         fs::create_dir_all(&dir).map_err(PulsarError::Io)?;
@@ -106,8 +99,7 @@ impl ProfileStore {
             serde_json::to_string_pretty(&data.profile).map_err(PulsarError::Json)?;
         fs::write(dir.join("profile.json"), profile_json).map_err(PulsarError::Io)?;
 
-        fs::write(dir.join("openvpn.ovpn"), &data.openvpn_config)
-            .map_err(PulsarError::Io)?;
+        fs::write(dir.join("openvpn.ovpn"), &data.openvpn_config).map_err(PulsarError::Io)?;
 
         let cloak_json =
             serde_json::to_string_pretty(&data.cloak_config).map_err(PulsarError::Json)?;

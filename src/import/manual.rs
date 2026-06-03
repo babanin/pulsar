@@ -17,17 +17,12 @@ pub fn import_manual(ovpn_path: &str, cloak_path: &str) -> Result<ProfileData> {
     })?;
 
     let cloak_config: CloakConfig = serde_json::from_str(&cloak_json)
-        .map_err(|e| {
-            PulsarError::InvalidCloakConfig(format!("Invalid Cloak JSON: {e}"))
-        })?;
+        .map_err(|e| PulsarError::InvalidCloakConfig(format!("Invalid Cloak JSON: {e}")))?;
 
     cloak_config.validate()?;
 
-    let remote_re =
-        regex::Regex::new(r"(?m)^remote\s+(\S+)\s+(\d+)").unwrap();
-    let (remote_host, remote_port) = if let Some(caps) =
-        remote_re.captures(&openvpn_config)
-    {
+    let remote_re = regex::Regex::new(r"(?m)^remote\s+(\S+)\s+(\d+)").unwrap();
+    let (remote_host, remote_port) = if let Some(caps) = remote_re.captures(&openvpn_config) {
         let host = caps
             .get(1)
             .map(|m| m.as_str().to_string())

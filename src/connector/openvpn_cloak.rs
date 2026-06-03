@@ -70,10 +70,7 @@ impl OpenVpnCloakConnector {
                             timeout: CLOAK_READY_TIMEOUT_SECS,
                         });
                     }
-                    tokio::time::sleep(Duration::from_millis(
-                        CLOAK_POLL_INTERVAL_MS,
-                    ))
-                    .await;
+                    tokio::time::sleep(Duration::from_millis(CLOAK_POLL_INTERVAL_MS)).await;
                 }
             }
         }
@@ -91,8 +88,7 @@ impl Connector for OpenVpnCloakConnector {
     }
 
     async fn start(&self) -> Result<()> {
-        self.status
-            .store(STATUS_CONNECTING, Ordering::SeqCst);
+        self.status.store(STATUS_CONNECTING, Ordering::SeqCst);
         tracing::info!(
             "Starting OpenVPN-over-Cloak connection for profile '{}'",
             self.profile_name
@@ -101,13 +97,9 @@ impl Connector for OpenVpnCloakConnector {
         let ck_path = if self.use_system_binaries {
             "ck-client"
         } else {
-            self.ck_client_path
-                .to_str()
-                .ok_or_else(|| {
-                    PulsarError::BinaryMissing(
-                        "ck-client path is invalid".to_string(),
-                    )
-                })?
+            self.ck_client_path.to_str().ok_or_else(|| {
+                PulsarError::BinaryMissing("ck-client path is invalid".to_string())
+            })?
         };
 
         let ovpn_path = if self.use_system_binaries {
@@ -115,11 +107,7 @@ impl Connector for OpenVpnCloakConnector {
         } else {
             self.openvpn_bin_path
                 .to_str()
-                .ok_or_else(|| {
-                    PulsarError::BinaryMissing(
-                        "openvpn path is invalid".to_string(),
-                    )
-                })?
+                .ok_or_else(|| PulsarError::BinaryMissing("openvpn path is invalid".to_string()))?
         };
 
         let mut supervisor = self.supervisor.lock().await;

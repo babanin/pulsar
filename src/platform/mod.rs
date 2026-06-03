@@ -17,9 +17,7 @@ impl Platform {
             ("macos", "x86_64") => Ok(Platform::MacOSX86_64),
             ("macos", "aarch64") => Ok(Platform::MacOSAarch64),
             ("linux", "x86_64") => Ok(Platform::LinuxX86_64),
-            _ => Err(PulsarError::PlatformNotSupported(format!(
-                "{os} {arch}"
-            ))),
+            _ => Err(PulsarError::PlatformNotSupported(format!("{os} {arch}"))),
         }
     }
 
@@ -53,13 +51,9 @@ pub fn resolve_binaries(platform: Platform) -> Result<BinaryPaths> {
         ))
     })?;
 
-    let exe_parent = exe_dir
-        .parent()
-        .ok_or_else(|| {
-            PulsarError::BinaryMissing(
-                "Cannot determine executable directory".to_string(),
-            )
-        })?;
+    let exe_parent = exe_dir.parent().ok_or_else(|| {
+        PulsarError::BinaryMissing("Cannot determine executable directory".to_string())
+    })?;
 
     let bundled_dir = exe_parent.join("bundled").join(platform.dir_name());
 
@@ -67,20 +61,13 @@ pub fn resolve_binaries(platform: Platform) -> Result<BinaryPaths> {
     let openvpn = bundled_dir.join("openvpn");
 
     if !ck_client.exists() {
-        return Err(PulsarError::BinaryMissing(
-            ck_client.display().to_string(),
-        ));
+        return Err(PulsarError::BinaryMissing(ck_client.display().to_string()));
     }
     if !openvpn.exists() {
-        return Err(PulsarError::BinaryMissing(
-            openvpn.display().to_string(),
-        ));
+        return Err(PulsarError::BinaryMissing(openvpn.display().to_string()));
     }
 
-    Ok(BinaryPaths {
-        ck_client,
-        openvpn,
-    })
+    Ok(BinaryPaths { ck_client, openvpn })
 }
 
 pub fn check_binary_executable(path: &PathBuf) -> Result<()> {
@@ -90,9 +77,7 @@ pub fn check_binary_executable(path: &PathBuf) -> Result<()> {
         let metadata = std::fs::metadata(path).map_err(PulsarError::Io)?;
         let mode = metadata.permissions().mode();
         if mode & 0o111 == 0 {
-            return Err(PulsarError::BinaryNotExecutable(
-                path.display().to_string(),
-            ));
+            return Err(PulsarError::BinaryNotExecutable(path.display().to_string()));
         }
     }
     Ok(())

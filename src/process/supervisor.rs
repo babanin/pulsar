@@ -8,10 +8,7 @@ pub struct ManagedProcess {
 }
 
 impl ManagedProcess {
-    pub async fn new(
-        name: &str,
-        command: &mut Command,
-    ) -> std::io::Result<Self> {
+    pub async fn new(name: &str, command: &mut Command) -> std::io::Result<Self> {
         let child = command
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -85,11 +82,7 @@ impl ProcessSupervisor {
 
         for proc in &mut self.processes {
             if let Ok(Some(status)) = proc.child.try_wait() {
-                tracing::warn!(
-                    "{} already exited with: {:?}",
-                    proc.name(),
-                    status.code()
-                );
+                tracing::warn!("{} already exited with: {:?}", proc.name(), status.code());
                 return;
             }
         }
@@ -97,11 +90,7 @@ impl ProcessSupervisor {
         if let Some(proc) = self.processes.first_mut() {
             match proc.child.wait().await {
                 Ok(status) => {
-                    tracing::warn!(
-                        "{} exited with status: {:?}",
-                        proc.name(),
-                        status.code()
-                    );
+                    tracing::warn!("{} exited with status: {:?}", proc.name(), status.code());
                 }
                 Err(e) => {
                     tracing::error!("Error waiting for {}: {e}", proc.name());
@@ -112,9 +101,7 @@ impl ProcessSupervisor {
 
     pub async fn kill_all(&mut self) {
         let process_count = self.processes.len();
-        tracing::info!(
-            "Shutting down {process_count} process(es)..."
-        );
+        tracing::info!("Shutting down {process_count} process(es)...");
 
         let processes = std::mem::take(&mut self.processes);
         let processes: Vec<_> = processes.into_iter().rev().collect();
@@ -127,10 +114,7 @@ impl ProcessSupervisor {
                     let _ = proc.child.wait().await;
                 }
                 Err(e) => {
-                    tracing::warn!(
-                        "Could not kill {}: {e}",
-                        proc.name()
-                    );
+                    tracing::warn!("Could not kill {}: {e}", proc.name());
                 }
             }
         }

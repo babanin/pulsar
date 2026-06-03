@@ -23,15 +23,18 @@ jobs:
           cp target/aarch64-apple-darwin/release/pulsar dist/pulsar/pulsar
           chmod +x dist/pulsar/pulsar
 
+      - name: Install openvpn (arm64)
+        run: |
+          brew install openvpn || true
+
       - name: Download ck-client (arm64)
         env:
           CK_VERSION: "v2.7.0"
         run: |
-          curl -L -o /tmp/ck-client.gz \
-            "https://github.com/cbeuw/Cloak/releases/download/${CK_VERSION}/ck-client-darwin-arm64.gz" \
+          curl -L -o /tmp/ck-client \
+            "https://github.com/cbeuw/Cloak/releases/download/${CK_VERSION}/ck-client-darwin-arm64-${CK_VERSION}" \
             || true
-          if [ -f /tmp/ck-client.gz ] && file /tmp/ck-client.gz | grep -q gzip; then
-            gunzip -f /tmp/ck-client.gz
+          if [ -f /tmp/ck-client ] && file /tmp/ck-client | grep -q "Mach-O"; then
             chmod +x /tmp/ck-client
             cp /tmp/ck-client dist/pulsar/bundled/macos-aarch64/ck-client
           else
@@ -49,7 +52,7 @@ jobs:
       - name: Verify distribution
         run: |
           ls -la dist/pulsar/bundled/macos-aarch64/
-          file dist/pulsar/pulsar || true
+          file dist/pulsar/pulsar dist/pulsar/bundled/macos-aarch64/*
 
       - name: Create archive
         run: cd dist && tar czf pulsar-macos-aarch64.tar.gz pulsar/
@@ -77,15 +80,18 @@ jobs:
           cp target/x86_64-apple-darwin/release/pulsar dist/pulsar/pulsar
           chmod +x dist/pulsar/pulsar
 
+      - name: Install openvpn (x86_64)
+        run: |
+          brew install openvpn || true
+
       - name: Download ck-client (x86_64)
         env:
           CK_VERSION: "v2.7.0"
         run: |
-          curl -L -o /tmp/ck-client.gz \
-            "https://github.com/cbeuw/Cloak/releases/download/${CK_VERSION}/ck-client-darwin-amd64.gz" \
+          curl -L -o /tmp/ck-client \
+            "https://github.com/cbeuw/Cloak/releases/download/${CK_VERSION}/ck-client-darwin-amd64-${CK_VERSION}" \
             || true
-          if [ -f /tmp/ck-client.gz ] && file /tmp/ck-client.gz | grep -q gzip; then
-            gunzip -f /tmp/ck-client.gz
+          if [ -f /tmp/ck-client ] && file /tmp/ck-client | grep -q "Mach-O"; then
             chmod +x /tmp/ck-client
             cp /tmp/ck-client dist/pulsar/bundled/macos-x86_64/ck-client
           else
@@ -94,12 +100,16 @@ jobs:
 
       - name: Bundle openvpn (x86_64)
         run: |
-          cp bundled/macos-x86_64/openvpn dist/pulsar/bundled/macos-x86_64/openvpn
+          if command -v openvpn &>/dev/null; then
+            cp "$(which openvpn)" dist/pulsar/bundled/macos-x86_64/openvpn
+          else
+            cp bundled/macos-x86_64/openvpn dist/pulsar/bundled/macos-x86_64/openvpn
+          fi
 
       - name: Verify distribution
         run: |
           ls -la dist/pulsar/bundled/macos-x86_64/
-          file dist/pulsar/pulsar || true
+          file dist/pulsar/pulsar dist/pulsar/bundled/macos-x86_64/*
 
       - name: Create archive
         run: cd dist && tar czf pulsar-macos-x86_64.tar.gz pulsar/

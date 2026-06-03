@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::cli::{Commands, ProfileCommands};
-use crate::connector::{ConnectorConfig, create_connector};
+use crate::connector::{create_connector, ConnectorConfig};
 use crate::error::PulsarError;
 use crate::import::{self, ImportSource};
 use crate::platform::{self, Platform};
@@ -65,10 +65,16 @@ async fn doctor() -> crate::error::Result<()> {
     let config_dir = store.base_dir();
     match std::fs::metadata(config_dir) {
         Ok(_) => {
-            println!("✓ Configuration directory writable: {}", config_dir.display());
+            println!(
+                "✓ Configuration directory writable: {}",
+                config_dir.display()
+            );
         }
         Err(_) => {
-            println!("✗ Configuration directory not writable: {}", config_dir.display());
+            println!(
+                "✗ Configuration directory not writable: {}",
+                config_dir.display()
+            );
             all_ok = false;
         }
     }
@@ -84,12 +90,8 @@ async fn doctor() -> crate::error::Result<()> {
 
 async fn profile_cmd(cmd: ProfileCommands) -> crate::error::Result<()> {
     match cmd {
-        ProfileCommands::ImportAmnezia { name, file } => {
-            import_amnezia(&name, &file).await
-        }
-        ProfileCommands::Import { name, ovpn, cloak } => {
-            import_manual(&name, &ovpn, &cloak).await
-        }
+        ProfileCommands::ImportAmnezia { name, file } => import_amnezia(&name, &file).await,
+        ProfileCommands::Import { name, ovpn, cloak } => import_manual(&name, &ovpn, &cloak).await,
         ProfileCommands::List => list_profiles().await,
         ProfileCommands::Show { name } => show_profile(&name).await,
     }

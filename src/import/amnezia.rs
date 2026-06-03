@@ -84,22 +84,17 @@ impl From<CloakRawConfig> for CloakConfig {
 }
 
 fn parse_cloak_config(raw_json: &str) -> Result<CloakConfig> {
-    let raw: CloakRawConfig =
-        serde_json::from_str(raw_json).map_err(|e| {
-            PulsarError::InvalidCloakConfig(format!("Invalid JSON: {e}"))
-        })?;
+    let raw: CloakRawConfig = serde_json::from_str(raw_json)
+        .map_err(|e| PulsarError::InvalidCloakConfig(format!("Invalid JSON: {e}")))?;
     let config = CloakConfig::from(raw);
     config.validate()?;
     Ok(config)
 }
 
 fn parse_openvpn_config(raw_json: &str) -> Result<String> {
-    let parsed: OpenVpnLastConfig =
-        serde_json::from_str(raw_json).map_err(|e| {
-            PulsarError::InvalidAmneziaProfile(format!(
-                "Invalid OpenVPN config JSON: {e}"
-            ))
-        })?;
+    let parsed: OpenVpnLastConfig = serde_json::from_str(raw_json).map_err(|e| {
+        PulsarError::InvalidAmneziaProfile(format!("Invalid OpenVPN config JSON: {e}"))
+    })?;
     parsed.config.ok_or(PulsarError::MissingOpenVpnConfig)
 }
 
@@ -121,24 +116,16 @@ fn extract_remote_info(openvpn_config: &str) -> (String, u16) {
 }
 
 pub fn import_amnezia_backup(contents: &str) -> Result<ProfileData> {
-    let backup: AmneziaBackup = serde_json::from_str(contents).map_err(|e| {
-        PulsarError::InvalidAmneziaProfile(format!("Invalid backup JSON: {e}"))
+    let backup: AmneziaBackup = serde_json::from_str(contents)
+        .map_err(|e| PulsarError::InvalidAmneziaProfile(format!("Invalid backup JSON: {e}")))?;
+
+    let servers_json = backup.servers_list.ok_or_else(|| {
+        PulsarError::InvalidAmneziaProfile("Missing Servers/serversList".to_string())
     })?;
 
-    let servers_json = backup
-        .servers_list
-        .ok_or_else(|| {
-            PulsarError::InvalidAmneziaProfile(
-                "Missing Servers/serversList".to_string(),
-            )
-        })?;
-
-    let servers: Vec<AmneziaServer> =
-        serde_json::from_str(&servers_json).map_err(|e| {
-            PulsarError::InvalidAmneziaProfile(format!(
-                "Invalid servers list JSON: {e}"
-            ))
-        })?;
+    let servers: Vec<AmneziaServer> = serde_json::from_str(&servers_json).map_err(|e| {
+        PulsarError::InvalidAmneziaProfile(format!("Invalid servers list JSON: {e}"))
+    })?;
 
     for server in &servers {
         for container in &server.containers {
@@ -146,10 +133,7 @@ pub fn import_amnezia_backup(contents: &str) -> Result<ProfileData> {
                 if let (Some(cloak_entry), Some(openvpn_entry)) =
                     (&container.cloak, &container.openvpn)
                 {
-                    return extract_openvpn_cloak(
-                        cloak_entry,
-                        openvpn_entry,
-                    );
+                    return extract_openvpn_cloak(cloak_entry, openvpn_entry);
                 }
             }
         }
@@ -167,21 +151,12 @@ fn extract_openvpn_cloak(
     let cloak_raw = cloak_entry
         .last_config
         .as_deref()
-        .ok_or_else(|| {
-            PulsarError::InvalidCloakConfig(
-                "Missing cloak last_config".to_string(),
-            )
-        })?;
+        .ok_or_else(|| PulsarError::InvalidCloakConfig("Missing cloak last_config".to_string()))?;
     let cloak_config = parse_cloak_config(cloak_raw)?;
 
-    let openvpn_raw = openvpn_entry
-        .last_config
-        .as_deref()
-        .ok_or_else(|| {
-            PulsarError::InvalidAmneziaProfile(
-                "Missing OpenVPN last_config".to_string(),
-            )
-        })?;
+    let openvpn_raw = openvpn_entry.last_config.as_deref().ok_or_else(|| {
+        PulsarError::InvalidAmneziaProfile("Missing OpenVPN last_config".to_string())
+    })?;
     let openvpn_config = parse_openvpn_config(openvpn_raw)?;
 
     let (remote_host, remote_port) = extract_remote_info(&openvpn_config);
@@ -197,10 +172,7 @@ fn extract_openvpn_cloak(
             remote_host
         },
         remote_port: if is_local {
-            cloak_config
-                .remote_port
-                .parse()
-                .unwrap_or(remote_port)
+            cloak_config.remote_port.parse().unwrap_or(remote_port)
         } else {
             remote_port
         },
