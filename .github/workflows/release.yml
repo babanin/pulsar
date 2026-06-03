@@ -57,11 +57,23 @@ jobs:
       - name: Create archive
         run: cd dist && tar czf pulsar-macos-aarch64.tar.gz pulsar/
 
+      - name: Build macOS installer (.pkg)
+        run: |
+          pkgbuild \
+            --root dist/pulsar \
+            --install-location /opt/pulsar \
+            --identifier com.babanin.pulsar \
+            --version "${GITHUB_REF_NAME#v}" \
+            --scripts installer/macos/scripts \
+            "dist/pulsar-${GITHUB_REF_NAME}-macos-aarch64.pkg"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: pulsar-macos-aarch64
-          path: dist/pulsar-macos-aarch64.tar.gz
+          path: |
+            dist/pulsar-macos-aarch64.tar.gz
+            dist/pulsar-*.pkg
 
   build-macos-x86_64:
     runs-on: self-hosted
@@ -114,11 +126,23 @@ jobs:
       - name: Create archive
         run: cd dist && tar czf pulsar-macos-x86_64.tar.gz pulsar/
 
+      - name: Build macOS installer (.pkg)
+        run: |
+          pkgbuild \
+            --root dist/pulsar \
+            --install-location /opt/pulsar \
+            --identifier com.babanin.pulsar \
+            --version "${GITHUB_REF_NAME#v}" \
+            --scripts installer/macos/scripts \
+            "dist/pulsar-${GITHUB_REF_NAME}-macos-x86_64.pkg"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: pulsar-macos-x86_64
-          path: dist/pulsar-macos-x86_64.tar.gz
+          path: |
+            dist/pulsar-macos-x86_64.tar.gz
+            dist/pulsar-*.pkg
 
   release:
     needs: [build-macos-arm64, build-macos-x86_64]
@@ -136,5 +160,7 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*.tar.gz
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.pkg
           generate_release_notes: true

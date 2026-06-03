@@ -1,0 +1,22 @@
+#!/bin/bash
+
+PULSAR_DIR="/opt/pulsar"
+BIN_DIR="/usr/local/bin"
+
+if [ ! -d "$BIN_DIR" ]; then
+    mkdir -p "$BIN_DIR"
+fi
+
+chmod -R a+rX "$PULSAR_DIR"
+chmod 755 "$PULSAR_DIR/pulsar"
+
+for f in "$PULSAR_DIR"/bundled/*/ck-client "$PULSAR_DIR"/bundled/*/openvpn; do
+    if [ -f "$f" ]; then
+        chmod 755 "$f"
+    fi
+done
+
+ln -sf "$PULSAR_DIR/pulsar" "$BIN_DIR/pulsar"
+
+echo "Pulsar installed to $PULSAR_DIR"
+echo "Symlink created: $BIN_DIR/pulsar -> $PULSAR_DIR/pulsar"
