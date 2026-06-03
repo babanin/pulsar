@@ -4,6 +4,7 @@ mod connector;
 mod error;
 mod import;
 mod logging;
+mod output;
 mod platform;
 mod process;
 mod profile;
@@ -21,8 +22,12 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    if let Err(e) = app::run(cli.command, cli.verbose).await {
-        eprintln!("Error: {e}");
+    if let Err(e) = app::run(cli.command, cli.verbose, cli.json).await {
+        if cli.json {
+            output::error(&e.to_string());
+        } else {
+            eprintln!("Error: {e}");
+        }
         std::process::exit(1);
     }
 

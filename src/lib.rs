@@ -3,6 +3,7 @@ pub mod connector;
 pub mod error;
 pub mod import;
 pub mod logging;
+pub mod output;
 pub mod platform;
 pub mod process;
 pub mod profile;

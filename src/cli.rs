@@ -10,6 +10,9 @@ pub struct Cli {
 
     #[arg(long, short, global = true, help = "Enable verbose output")]
     pub verbose: bool,
+
+    #[arg(long, global = true, help = "Output in JSON format for AI agents")]
+    pub json: bool,
 }
 
 #[derive(Subcommand)]

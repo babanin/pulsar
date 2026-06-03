@@ -1,103 +1,153 @@
 use std::path::PathBuf;
 
+use serde::Serialize;
+
 use crate::cli::{Commands, ProfileCommands};
 use crate::connector::{create_connector, ConnectorConfig};
 use crate::error::PulsarError;
 use crate::import::{self, ImportSource};
+use crate::output;
 use crate::platform::{self, Platform};
 use crate::profile::model::Profile;
 use crate::profile::store::ProfileStore;
 
-pub async fn run(command: Commands, _verbose: bool) -> crate::error::Result<()> {
+pub async fn run(command: Commands, _verbose: bool, json: bool) -> crate::error::Result<()> {
     match command {
-        Commands::Doctor => doctor().await,
-        Commands::Profile(cmd) => profile_cmd(cmd).await,
+        Commands::Doctor => doctor(json).await,
+        Commands::Profile(cmd) => profile_cmd(cmd, json).await,
         Commands::Connect {
             name,
             use_system_binaries,
-        } => connect(&name, use_system_binaries).await,
-        Commands::Disconnect => disconnect().await,
-        Commands::Status => status().await,
+        } => connect(&name, use_system_binaries, json).await,
+        Commands::Disconnect => disconnect(json).await,
+        Commands::Status => status(json).await,
     }
 }
 
-async fn doctor() -> crate::error::Result<()> {
-    let mut all_ok = true;
-
-    match Platform::current() {
-        Ok(platform) => {
-            println!("✓ Platform supported: {}", platform.dir_name());
-        }
-        Err(e) => {
-            println!("✗ {e}");
-            all_ok = false;
-        }
+async fn doctor(json: bool) -> crate::error::Result<()> {
+    #[derive(Serialize)]
+    struct Check {
+        name: String,
+        ok: bool,
+        message: String,
     }
 
-    let platform = Platform::current().ok();
-    if let Some(plat) = platform {
+    let mut checks: Vec<Check> = Vec::new();
+
+    match Platform::current() {
+        Ok(platform) => checks.push(Check {
+            name: "Platform".into(),
+            ok: true,
+            message: platform.dir_name().to_string(),
+        }),
+        Err(e) => checks.push(Check {
+            name: "Platform".into(),
+            ok: false,
+            message: format!("Platform not supported: {e}"),
+        }),
+    }
+
+    if let Ok(plat) = Platform::current() {
         match platform::resolve_binaries(plat) {
             Ok(paths) => {
-                println!("✓ ck-client found: {}", paths.ck_client.display());
-                if let Err(e) = platform::check_binary_executable(&paths.ck_client) {
-                    println!("✗ ck-client not executable: {e}");
-                    all_ok = false;
-                } else {
-                    println!("✓ ck-client executable");
+                checks.push(Check {
+                    name: "ck-client".into(),
+                    ok: true,
+                    message: paths.ck_client.display().to_string(),
+                });
+
+                match platform::check_binary_executable(&paths.ck_client) {
+                    Ok(()) => checks.push(Check {
+                        name: "ck-client executable".into(),
+                        ok: true,
+                        message: "yes".into(),
+                    }),
+                    Err(e) => checks.push(Check {
+                        name: "ck-client executable".into(),
+                        ok: false,
+                        message: e.to_string(),
+                    }),
                 }
 
-                println!("✓ openvpn found: {}", paths.openvpn.display());
-                if let Err(e) = platform::check_binary_executable(&paths.openvpn) {
-                    println!("✗ openvpn not executable: {e}");
-                    all_ok = false;
-                } else {
-                    println!("✓ openvpn executable");
+                checks.push(Check {
+                    name: "openvpn".into(),
+                    ok: true,
+                    message: paths.openvpn.display().to_string(),
+                });
+
+                match platform::check_binary_executable(&paths.openvpn) {
+                    Ok(()) => checks.push(Check {
+                        name: "openvpn executable".into(),
+                        ok: true,
+                        message: "yes".into(),
+                    }),
+                    Err(e) => checks.push(Check {
+                        name: "openvpn executable".into(),
+                        ok: false,
+                        message: e.to_string(),
+                    }),
                 }
             }
-            Err(e) => {
-                println!("✗ {e}");
-                all_ok = false;
-            }
+            Err(e) => checks.push(Check {
+                name: "Bundled binaries".into(),
+                ok: false,
+                message: e.to_string(),
+            }),
         }
     }
 
     let store = ProfileStore::new()?;
-    let config_dir = store.base_dir();
-    match std::fs::metadata(config_dir) {
-        Ok(_) => {
-            println!(
-                "✓ Configuration directory writable: {}",
-                config_dir.display()
-            );
-        }
-        Err(_) => {
-            println!(
-                "✗ Configuration directory not writable: {}",
-                config_dir.display()
-            );
-            all_ok = false;
-        }
+    let config_dir = store.base_dir().to_path_buf();
+    match std::fs::metadata(&config_dir) {
+        Ok(_) => checks.push(Check {
+            name: "Config directory".into(),
+            ok: true,
+            message: config_dir.display().to_string(),
+        }),
+        Err(_) => checks.push(Check {
+            name: "Config directory".into(),
+            ok: false,
+            message: format!("not writable: {}", config_dir.display()),
+        }),
     }
 
-    if all_ok {
-        println!("\nAll checks passed.");
+    let all_ok = checks.iter().all(|c| c.ok);
+
+    if json {
+        #[derive(Serialize)]
+        struct DoctorData {
+            all_ok: bool,
+            checks: Vec<Check>,
+        }
+        output::result(&DoctorData { all_ok, checks });
     } else {
-        println!("\nSome checks failed.");
+        for c in &checks {
+            let mark = if c.ok { "✓" } else { "✗" };
+            println!("{mark} {}: {}", c.name, c.message);
+        }
+        println!();
+        if all_ok {
+            println!("All checks passed.");
+        } else {
+            println!("Some checks failed.");
+        }
     }
 
     Ok(())
 }
 
-async fn profile_cmd(cmd: ProfileCommands) -> crate::error::Result<()> {
+async fn profile_cmd(cmd: ProfileCommands, json: bool) -> crate::error::Result<()> {
     match cmd {
-        ProfileCommands::ImportAmnezia { name, file } => import_amnezia(&name, &file).await,
-        ProfileCommands::Import { name, ovpn, cloak } => import_manual(&name, &ovpn, &cloak).await,
-        ProfileCommands::List => list_profiles().await,
-        ProfileCommands::Show { name } => show_profile(&name).await,
+        ProfileCommands::ImportAmnezia { name, file } => import_amnezia(&name, &file, json).await,
+        ProfileCommands::Import { name, ovpn, cloak } => {
+            import_manual(&name, &ovpn, &cloak, json).await
+        }
+        ProfileCommands::List => list_profiles(json).await,
+        ProfileCommands::Show { name } => show_profile(&name, json).await,
     }
 }
 
-async fn import_amnezia(name: &str, file: &str) -> crate::error::Result<()> {
+async fn import_amnezia(name: &str, file: &str, json: bool) -> crate::error::Result<()> {
     let name = Profile::sanitize_name(name)?;
     let store = ProfileStore::new()?;
 
@@ -111,11 +161,26 @@ async fn import_amnezia(name: &str, file: &str) -> crate::error::Result<()> {
     data.profile.name = name.clone();
 
     store.save(&data)?;
-    println!("Profile '{}' imported successfully.", name);
+
+    if json {
+        #[derive(Serialize)]
+        struct ImportResult {
+            name: String,
+        }
+        output::result(&ImportResult { name });
+    } else {
+        println!("Profile '{}' imported successfully.", name);
+    }
+
     Ok(())
 }
 
-async fn import_manual(name: &str, ovpn_path: &str, cloak_path: &str) -> crate::error::Result<()> {
+async fn import_manual(
+    name: &str,
+    ovpn_path: &str,
+    cloak_path: &str,
+    json: bool,
+) -> crate::error::Result<()> {
     let name = Profile::sanitize_name(name)?;
     let store = ProfileStore::new()?;
 
@@ -130,45 +195,81 @@ async fn import_manual(name: &str, ovpn_path: &str, cloak_path: &str) -> crate::
     data.profile.name = name.clone();
 
     store.save(&data)?;
-    println!("Profile '{}' imported successfully.", name);
+
+    if json {
+        #[derive(Serialize)]
+        struct ImportResult {
+            name: String,
+        }
+        output::result(&ImportResult { name });
+    } else {
+        println!("Profile '{}' imported successfully.", name);
+    }
+
     Ok(())
 }
 
-async fn list_profiles() -> crate::error::Result<()> {
+async fn list_profiles(json: bool) -> crate::error::Result<()> {
     let store = ProfileStore::new()?;
     let profiles = store.list()?;
 
-    if profiles.is_empty() {
-        println!("No profiles found.");
-        return Ok(());
-    }
+    if json {
+        #[derive(Serialize)]
+        struct ProfileEntry {
+            name: String,
+            protocol: String,
+            remote_host: String,
+            remote_port: u16,
+            local_port: u16,
+        }
 
-    println!("{:<20} {:<15} {:<10} HOST", "NAME", "PROTOCOL", "PORT");
-    for p in &profiles {
-        println!(
-            "{:<20} {:<15} {:<10} {}",
-            p.name, p.protocol_type, p.remote_port, p.remote_host
-        );
+        let entries: Vec<ProfileEntry> = profiles
+            .iter()
+            .map(|p| ProfileEntry {
+                name: p.name.clone(),
+                protocol: p.protocol_type.to_string(),
+                remote_host: p.remote_host.clone(),
+                remote_port: p.remote_port,
+                local_port: p.local_cloak_port,
+            })
+            .collect();
+        output::result(&entries);
+    } else {
+        if profiles.is_empty() {
+            println!("No profiles found.");
+            return Ok(());
+        }
+        println!("{:<20} {:<15} {:<10} HOST", "NAME", "PROTOCOL", "PORT");
+        for p in &profiles {
+            println!(
+                "{:<20} {:<15} {:<10} {}",
+                p.name, p.protocol_type, p.remote_port, p.remote_host
+            );
+        }
     }
 
     Ok(())
 }
 
-async fn show_profile(name: &str) -> crate::error::Result<()> {
+async fn show_profile(name: &str, json: bool) -> crate::error::Result<()> {
     let store = ProfileStore::new()?;
     let profile = store.load(name)?;
 
-    println!("Profile:     {}", profile.name);
-    println!("Protocol:    {}", profile.protocol_type);
-    println!("Remote host: {}", profile.remote_host);
-    println!("Remote port: {}", profile.remote_port);
-    println!("Local port:  {}", profile.local_cloak_port);
-    println!("Created:     {}", profile.created_at);
+    if json {
+        output::result(&profile);
+    } else {
+        println!("Profile:     {}", profile.name);
+        println!("Protocol:    {}", profile.protocol_type);
+        println!("Remote host: {}", profile.remote_host);
+        println!("Remote port: {}", profile.remote_port);
+        println!("Local port:  {}", profile.local_cloak_port);
+        println!("Created:     {}", profile.created_at);
+    }
 
     Ok(())
 }
 
-async fn connect(name: &str, use_system_binaries: bool) -> crate::error::Result<()> {
+async fn connect(name: &str, use_system_binaries: bool, json: bool) -> crate::error::Result<()> {
     let store = ProfileStore::new()?;
     let profile = store.load(name)?;
     let _openvpn_config = store.load_openvpn_config(name)?;
@@ -202,18 +303,47 @@ async fn connect(name: &str, use_system_binaries: bool) -> crate::error::Result<
     );
 
     tracing::info!("Connecting to '{}'...", profile.name);
-
     conn.start().await?;
 
+    if json {
+        #[derive(Serialize)]
+        struct ConnectResult {
+            profile: String,
+            connected: bool,
+        }
+        output::result(&ConnectResult {
+            profile: name.to_string(),
+            connected: true,
+        });
+    } else {
+        println!("Connected to '{}'.", name);
+    }
+
     Ok(())
 }
 
-async fn disconnect() -> crate::error::Result<()> {
-    println!("Disconnect: no active session found.");
+async fn disconnect(json: bool) -> crate::error::Result<()> {
+    if json {
+        #[derive(Serialize)]
+        struct DisconnectResult {
+            disconnected: bool,
+        }
+        output::result(&DisconnectResult { disconnected: true });
+    } else {
+        println!("Disconnect: no active session found.");
+    }
     Ok(())
 }
 
-async fn status() -> crate::error::Result<()> {
-    println!("Disconnected");
+async fn status(json: bool) -> crate::error::Result<()> {
+    if json {
+        #[derive(Serialize)]
+        struct StatusResult {
+            connected: bool,
+        }
+        output::result(&StatusResult { connected: false });
+    } else {
+        println!("Disconnected");
+    }
     Ok(())
 }
