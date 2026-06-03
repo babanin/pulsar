@@ -80,6 +80,23 @@ The `.backup` file is JSON with double-encoded nested structures:
 4. `openvpn.last_config` contains `config` field with the raw .ovpn content
 5. Cloak JSON uses PascalCase: `BrowserSig`, `EncryptionMethod`, `PublicKey`, `UID` (uppercase)
 
+## CLI `--json` Flag for AI Agents
+
+All commands support `--json` for structured machine-readable output:
+
+- **Success**: `{ "status": "ok", "data": { ... } }`
+- **Error**: `{ "status": "error", "error": "message" }`
+- **doctor**: returns `{ "all_ok": bool, "checks": [{ "name": "...", "ok": bool, "message": "..." }] }`
+- **profile import / import-amnezia**: returns `{ "name": "profile-name" }`
+- **profile list**: returns array of `{ "name", "protocol", "remote_host", "remote_port", "local_port" }`
+- **profile show**: returns full profile object (name, protocol, remote_host, remote_port, local_port, created_at)
+- **connect**: returns `{ "profile": "...", "connected": true }`
+- **disconnect**: returns `{ "disconnected": true }`
+- **status**: returns `{ "connected": false }`
+
+Example: `pulsar --json profile list` → `{ "status": "ok", "data": [...] }`
+Example: `pulsar --json connect home` → `{ "status": "ok", "data": { "profile": "home", "connected": true } }`
+
 ## Error Handling
 
 - All errors use `PulsarError` enum with `thiserror` derives
