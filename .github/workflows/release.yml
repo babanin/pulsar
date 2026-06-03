@@ -75,77 +75,8 @@ jobs:
             dist/pulsar-macos-aarch64.tar.gz
             dist/pulsar-*.pkg
 
-  build-macos-x86_64:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust target
-        run: rustup target add x86_64-apple-darwin
-
-      - name: Build pulsar (x86_64)
-        run: cargo build --release --target x86_64-apple-darwin
-
-      - name: Create x86_64 distribution
-        run: |
-          mkdir -p dist/pulsar/bundled/macos-x86_64
-          cp target/x86_64-apple-darwin/release/pulsar dist/pulsar/pulsar
-          chmod +x dist/pulsar/pulsar
-
-      - name: Install openvpn (x86_64)
-        run: |
-          brew install openvpn || true
-
-      - name: Download ck-client (x86_64)
-        env:
-          CK_VERSION: "v2.7.0"
-        run: |
-          curl -L -o /tmp/ck-client \
-            "https://github.com/cbeuw/Cloak/releases/download/${CK_VERSION}/ck-client-darwin-amd64-${CK_VERSION}" \
-            || true
-          if [ -f /tmp/ck-client ] && file /tmp/ck-client | grep -q "Mach-O"; then
-            chmod +x /tmp/ck-client
-            cp /tmp/ck-client dist/pulsar/bundled/macos-x86_64/ck-client
-          else
-            cp bundled/macos-x86_64/ck-client dist/pulsar/bundled/macos-x86_64/ck-client
-          fi
-
-      - name: Bundle openvpn (x86_64)
-        run: |
-          if command -v openvpn &>/dev/null; then
-            cp "$(which openvpn)" dist/pulsar/bundled/macos-x86_64/openvpn
-          else
-            cp bundled/macos-x86_64/openvpn dist/pulsar/bundled/macos-x86_64/openvpn
-          fi
-
-      - name: Verify distribution
-        run: |
-          ls -la dist/pulsar/bundled/macos-x86_64/
-          file dist/pulsar/pulsar dist/pulsar/bundled/macos-x86_64/*
-
-      - name: Create archive
-        run: cd dist && tar czf pulsar-macos-x86_64.tar.gz pulsar/
-
-      - name: Build macOS installer (.pkg)
-        run: |
-          pkgbuild \
-            --root dist/pulsar \
-            --install-location /opt/pulsar \
-            --identifier com.babanin.pulsar \
-            --version "${GITHUB_REF_NAME#v}" \
-            --scripts installer/macos/scripts \
-            "dist/pulsar-${GITHUB_REF_NAME}-macos-x86_64.pkg"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pulsar-macos-x86_64
-          path: |
-            dist/pulsar-macos-x86_64.tar.gz
-            dist/pulsar-*.pkg
-
   release:
-    needs: [build-macos-arm64, build-macos-x86_64]
+    needs: [build-macos-arm64]
     runs-on: self-hosted
     permissions:
       contents: write
