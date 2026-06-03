@@ -94,4 +94,5 @@ jobs:
           files: |
             artifacts/**/*.tar.gz
             artifacts/**/*.pkg
+            scripts/install.sh
           generate_release_notes: true
